@@ -6,5 +6,6 @@ server.log
 server-error.log
 .playwright-cli/
 output/
+public/media/source-*.mp4
 .DS_Store
 Thumbs.db

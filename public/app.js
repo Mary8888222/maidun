@@ -1,11 +1,13 @@
 const state = { user: null, route: 'map', dashboard: null, cache: {} };
 const app = document.querySelector('#app');
+const staticDemo = location.hostname.endsWith('github.io') || location.protocol === 'file:' || new URLSearchParams(location.search).has('demo');
 const navItems = [
   ['map','电子地图'],['bigdata','大数据'],['disease','病害档案'],['video','监控视频'],
   ['identify','识别监测'],['analysis','结果分析'],['control','防控管理'],['info','信息管理'],['robot','机器人中心']
 ];
 
 async function api(url, options = {}) {
+  if (staticDemo && window.maidunDemoApi) return window.maidunDemoApi(url, options);
   const res = await fetch(url, { headers: { 'Content-Type':'application/json' }, ...options });
   const data = await res.json();
   if (!res.ok) throw new Error(data.message || '请求失败');
@@ -59,14 +61,14 @@ function stat(label, value, unit, trend='实时') { return `<div class="stat"><s
 function levelTag(value) { const c = value==='高'||value==='红色'||value==='强阳性'?'red':value==='中'||value==='橙色'||value==='阳性'?'orange':value==='低'||value==='在线'||value==='已完成'||value==='阴性'?'green':'blue'; return `<span class="tag ${c}">${value}</span>`; }
 
 function mapMarkup(plots) {
-  return `<div class="real-map-wrap"><div id="realMap" class="real-map" aria-label="四川省营山县西桥镇监测地图"></div>
+  return `<div class="real-map-wrap"><div id="realMap" class="real-map" aria-label="川渝小麦产区监测地图"></div>
     <div class="map-legend"><b class="cyan"></b>低风险 <b class="orange"></b>中风险 <b class="red"></b>高风险</div></div>`;
 }
 
 function initLeafletMap(plots) {
   const target = document.querySelector('#realMap');
   if (!target || !window.L) return;
-  const map = L.map(target).setView([30.9310043,106.6902606], 14);
+  const map = L.map(target, { minZoom:6 }).setView([30.55,105.5], 7);
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom:19, attribution:'&copy; OpenStreetMap contributors' }).addTo(map);
   const colors = { 高:'#ff6374', 中:'#ffae52', 低:'#20e0b2' };
   plots.forEach(p => {
@@ -74,6 +76,9 @@ function initLeafletMap(plots) {
     marker.bindTooltip(p.name, { permanent:true, direction:'top', offset:[0,-8], className:'plot-label' });
     marker.bindPopup(`<div class="plot-popup"><b>${p.name}</b><span>${p.region}</span><span>品种：${p.variety}　${p.area_mu}亩</span><span>风险：${p.risk_level}　状态：${p.status}</span><span>负责人：${p.manager}</span></div>`);
   });
+  if (plots.length > 1) {
+    map.fitBounds(plots.map(p => [p.latitude,p.longitude]), { padding:[55,55], maxZoom:9 });
+  }
 }
 
 function trendChart(rows) {
@@ -85,7 +90,7 @@ function mapPage(d) {
   const a=d.stats;
   return pageTitle('电子地图','试验田风险、机器人与孢子监测点位一张图')+
     `<section class="stats">${stat('试验田块',a.plots,'个')}${stat('监测面积',a.area,'亩')}${stat('在线设备',a.devices,'台')}${stat('PCR样本',a.samples,'份')}${stat('阳性检出率',a.positiveRate+'%','近30天')}${stat('活动预警',a.activeAlerts,'条')}</section>
-    <section class="grid-main"><div class="panel map-panel"><div class="panel-head"><h3>四川省营山县西桥镇综合监测态势</h3><span class="tag green">机器人在线 3/3</span></div>${mapMarkup(d.plots)}</div>
+    <section class="grid-main"><div class="panel map-panel"><div class="panel-head"><h3>川渝小麦产区综合监测态势</h3><span class="tag green">机器人在线 3/3</span></div>${mapMarkup(d.plots)}</div>
     <div class="side-stack"><div class="panel"><div class="panel-head"><h3>实时预警</h3><span class="tag">${a.activeAlerts} 条待跟进</span></div><div class="panel-body alert-list">${d.alerts.map(x=>`<div class="alert-row"><i class="alert-dot ${x.level==='红色'?'red':x.level==='橙色'?'orange':'cyan'}"></i><div><h4>${x.title}</h4><p>${x.plot_name} · ${x.created_at}</p></div>${levelTag(x.level)}</div>`).join('')}</div></div>
     <div class="panel"><div class="panel-head"><h3>近14日 DNA-PCR 检测趋势</h3><span style="font-size:10px;color:#72939d"><i style="color:#20e0b2">■</i> 样本　<i style="color:#ffae52">■</i> 阳性</span></div><div class="panel-body" style="padding-top:0">${trendChart(d.trends)}</div></div></div></section>`;
 }
@@ -119,7 +124,7 @@ function devicePage(rows,tasks) {
   <div class="panel table-wrap" style="margin-top:14px"><div class="panel-head"><h3>近期巡检任务</h3></div><table class="data-table"><thead><tr><th>任务编号</th><th>机器人</th><th>地块</th><th>路线</th><th>里程</th><th>样本</th><th>进度</th><th>状态</th></tr></thead><tbody>${tasks.map(t=>`<tr><td>${t.task_code}</td><td>${t.robot_name}</td><td>${t.plot_name}</td><td>${t.route_name}</td><td>${t.distance_km} km</td><td>${t.samples_count}</td><td><div class="meter" style="width:120px;margin:0"><i style="width:${t.progress}%"></i></div></td><td>${levelTag(t.status)}</td></tr>`).join('')}</tbody></table></div>`;
 }
 
-function videoPage(rows){return pageTitle('监控视频','机器人移动视角与试验田固定点位实时监控')+`<div class="video-grid">${rows.slice(0,4).map((v,i)=>`<div class="panel video-card"><video class="video-media" src="/media/wheat-${String(i+1).padStart(2,'0')}.mp4?v=2" autoplay muted loop playsinline controls preload="metadata"></video><div class="scan"></div><div class="crosshair"></div><div class="video-hud"><div class="top"><span>● LIVE　${v.channel_code}</span>${levelTag(v.status)}</div><div class="bottom"><span>${v.name} · ${v.plot_name}</span><span>${v.resolution}　${v.last_frame_at.slice(11)}</span></div></div></div>`).join('')}</div>`}
+function videoPage(rows){return pageTitle('监控视频','川渝麦田固定点位与机器人移动视角实时监控')+`<div class="video-grid">${rows.slice(0,4).map((v,i)=>`<div class="panel video-card"><video class="video-media" src="./media/wheat-${String(i+1).padStart(2,'0')}.mp4?v=3" autoplay muted loop playsinline controls preload="metadata"></video><div class="scan"></div><div class="crosshair"></div><div class="video-hud"><div class="top"><span>● LIVE　${v.channel_code}</span>${levelTag(v.status)}</div><div class="bottom"><span>${v.name} · ${v.plot_name}</span><span>${v.resolution}　${v.last_frame_at.slice(11)}</span></div></div></div>`).join('')}</div>`}
 
 function analysisPage(data,d) {
   const points=data.env.slice(-18); const max=Math.max(...points.map(x=>x.spore_index),1);
