@@ -1,0 +1,14 @@
+{
+  "name": "maidun-wheat-spore-platform",
+  "version": "1.0.0",
+  "private": true,
+  "description": "基于机器人与DNA-PCR技术的小麦孢子病害识别与监测平台",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js",
+    "db:reset": "node server.js --reset-db"
+  },
+  "engines": {
+    "node": ">=22.5.0"
+  }
+}

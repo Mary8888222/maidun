@@ -1,0 +1,10 @@
+node_modules/
+database/*.db
+database/*.db-shm
+database/*.db-wal
+server.log
+server-error.log
+.playwright-cli/
+output/
+.DS_Store
+Thumbs.db
